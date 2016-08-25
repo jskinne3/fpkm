@@ -22,34 +22,36 @@ def open(s)
   return data
 end
 
-def nearby(a, b)
-  # Checking if a read endpoint is within 350 bp of the same 
-  # end's endpoint on another read is producing pretty good
-  # matches so far. More sophisticated matches are possible.
-  spread = 350
+def overlap(a, b) # Calculate percent (decimal form) overlap of two RNAs
+  # Split up the locus strings into endpoints
   a0, a1 = a.split('-').map{|n| n.to_i}
   b0, b1 = b.split('-').map{|n| n.to_i}
-  if ((a0 - b0).abs < spread)
-    return true
-  elsif ((a1 - b1).abs < spread)
-    return true
-  else
-    return false
-  end
+  # Discard if two RNAs have no overlap
+  (return 0.0) if ((a1 < b0) || (b1 < a0))
+  # Order the four endpoints of the two RNAs by locus
+  endpts = [a0, a1, b0, b1].sort!
+  # Return the ratio of the inner pair / outer pair of endpoints
+  return ((endpts[1] - endpts[2]).abs.to_f / (endpts[0] - endpts[3]).abs.to_f)
 end
 
 def match(item, list)
-  # Function used to find one read from a list of reads
-  # that is "nearby" to a given read item to be matched.
-  found = nil
+  # Function used to find one RNA from a list of RNAs
+  # with the highest overlap with the RNA item to be matched.
+  rna_found, percent_max = nil, 0.0
   for line in list
     if (line[:contig] == item[:contig])
-      if nearby(line[:locus], item[:locus])
-        found = line
+      percent_found = overlap(line[:locus], item[:locus])
+      # 10% minimum overlap cutoff
+      if percent_found > 0.1
+        # If the overlap on this pass is higher than any overlap found previously...
+        if (percent_found > percent_max)
+          rna_found = line # ...then the current RNA is the best match so far... 
+          percent_max = percent_found # ...and the max overlap found should be increased.
+        end
       end
     end
   end
-  return found
+  return rna_found # return an RNA or nil
 end
 
 def main
